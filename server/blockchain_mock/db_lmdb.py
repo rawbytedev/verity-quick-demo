@@ -19,13 +19,14 @@ class DB:
             self.cache.popitem(last=False)
         self.cache[key] = value
 
-    def get(self, key: str):
+    def get(self, key):
         if not key:
             raise DBError("Key can't be empty")
+        key ,_=self.handler(key)
         if key in self.cache:
             return self.cache[key]
         with self.db.begin(write=False) as txn:
-            hash_key = dighash(key.encode())
+            hash_key = dighash(key)
             val = txn.get(hash_key)
             if val is None:
                 raise DBError(f"Value for key {key} not found")
@@ -33,21 +34,28 @@ class DB:
             self._cache_set(key, decoded)
             return decoded
 
-    def put(self, key: str, value: str):
+    def put(self, key, value):
         if not key:
             raise DBError("Key can't be empty")
         if not value:
             raise DBError("Value can't be empty")
+        key ,value=self.handler(key, value)
         self._cache_set(key, value)
-        hash_key = dighash(key.encode())
+        hash_key = dighash(key)
         try:
             with self.db.begin(write=True) as txn:
-                txn.put(hash_key, value.encode())
+                txn.put(hash_key, value)
             with self.index.begin(write=True) as txn:
-                txn.put(key.encode(), hash_key)
+                txn.put(key, hash_key)
         except Exception as e:
             raise DBError(f"Can't insert item: {key}:{value}")
-
+        
+    def handler(self,key=None, value=None):
+        if isinstance(key, str):
+            key = key.encode()
+        if isinstance(value, str):
+            value = value.encode()
+        return key, value
     def iterate(self, prefix: str):
         """
         Iterate over all keys in the index database with a given prefix (e.g. 'ec:').

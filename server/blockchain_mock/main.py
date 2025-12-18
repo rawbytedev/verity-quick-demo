@@ -1,3 +1,5 @@
+from base64 import b64encode
+import base64
 from pydantic import BaseModel
 from db_lmdb import DB, DBError
 import asyncio, json
@@ -10,16 +12,17 @@ import uvicorn
 from utils import hexhash
 
 app = FastAPI()
+db = DB()
 class FileRequest(BaseModel):
     ifps_hash:str
 class FileResponse(BaseModel):
     status:int
     error:str
-    data:str ## base64encoded content
+    data:bytes
 
 class FileUpload(BaseModel):
     checksum:str
-    data:str
+    data:bytes
     name:str
 
 class FileUploadResponse(BaseModel):
@@ -28,6 +31,10 @@ class FileUploadResponse(BaseModel):
     checksum:str
     ifps_hash:str
 
+## smart contract models
+class LinkDID(BaseModel):
+    address: str
+    did_hash:bytes
 @app.get("/retrieve")
 def retrieve_file(req: FileRequest):
     retrieve(req.ifps_hash)
@@ -38,12 +45,21 @@ def add_doc(req:FileUpload):
         ifps_hash = store(req.name, req.data, req.checksum)
         return FileUploadResponse(checksum=req.checksum, ifps_hash=ifps_hash, status=200, error="")
     return FileUploadResponse(checksum=req.checksum, ifps_hash="", status=304, error="Invalid Request")
+@app.post("/block/link_did")
+def didlink(req: LinkDID):
+    pass
 
+## adds key to database
+def append(key:bytes, data:bytes):
+    db.put(key, data)
+
+def get_db(key:bytes):
+    pass
 def store(name,data, checksum):
     ifps = gen_ifps_hash(name,checksum)
     with open(f"store/{ifps}", "xb") as f:
         f.write(b"name:"+name.encode()+b"\n")
-        f.write(data.encode())
+        f.write(data)
         return ifps
 def retrieve(ifps):
     try:
@@ -57,7 +73,8 @@ def retrieve(ifps):
     except Exception as e:
         print(e)
         return ""
-    return data
+    return FileResponse(status=200, error="", data=data)
+
 def gen_ifps_hash(name, checksum):
     return hexhash(f"{name}{checksum}")
 
