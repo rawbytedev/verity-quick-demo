@@ -2,7 +2,7 @@
 import os
 import pytest
 from main import store, retrieve, gen_ifps_hash, add_doc, FileUpload
-from server.IPFS_Server.main import FileRequest
+from main import FileRequest
 from utils import hexhash
 
 
@@ -73,6 +73,6 @@ def test_retrieve_doc_endpoint(tmp_path, monkeypatch):
 	assert resp.status == 200
 	assert resp.ifps_hash != ""
 
-	bad = FileRequest(checksum="bad", data=data, name="b.txt")
+	bad = FileUpload(checksum="bad", data=data, name="b.txt")
 	resp2 = add_doc(bad)
 	assert resp2.status == 304

@@ -18,7 +18,7 @@ def temp_db():
 
 def test_put_and_get(temp_db):
     temp_db.put("key1", "value1")
-    assert temp_db.get("key1") == "value1"
+    assert temp_db.get("key1") == b"value1"
 
 def test_get_populates_cache(temp_db):
     temp_db.put("key2", "value2")
@@ -27,7 +27,7 @@ def test_get_populates_cache(temp_db):
     val = temp_db.get("key2")
     assert val == "value2"
     # Now it should also be back in cache
-    assert "key2" in temp_db.cache
+    assert b"key2" in temp_db.cache
 
 def test_empty_key_raises(temp_db):
     with pytest.raises(DBError):
@@ -50,9 +50,9 @@ def test_cache_eviction(temp_db):
     temp_db.put("b", "2")
     temp_db.put("c", "3")
     # Oldest ("a") should be evicted
-    assert "a" not in temp_db.cache
-    assert "b" in temp_db.cache
-    assert "c" in temp_db.cache
+    assert b"a" not in temp_db.cache
+    assert b"b" in temp_db.cache
+    assert b"c" in temp_db.cache
 
 def test_iterate_returns_only_prefixed_keys(temp_db):
     # Insert some keys with prefix "ec:" and some without

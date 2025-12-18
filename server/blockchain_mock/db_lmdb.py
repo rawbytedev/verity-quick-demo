@@ -41,6 +41,7 @@ class DB:
             raise DBError("Value can't be empty")
         key ,value=self.handler(key, value)
         self._cache_set(key, value)
+
         hash_key = dighash(key)
         try:
             with self.db.begin(write=True) as txn:
@@ -51,9 +52,9 @@ class DB:
             raise DBError(f"Can't insert item: {key}:{value}")
         
     def handler(self,key=None, value=None):
-        if isinstance(key, str):
+        if key and isinstance(key, str):
             key = key.encode()
-        if isinstance(value, str):
+        if value and isinstance(value, str):
             value = value.encode()
         return key, value
     def iterate(self, prefix: str):
