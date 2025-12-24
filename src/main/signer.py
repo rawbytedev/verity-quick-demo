@@ -15,20 +15,23 @@ def Address(acc):
 def Keys(acc):
     return acc.key
 
-def sign(acc, msg):
-    # Encode the message with the Ethereum prefix
+def sign(priv_key, msg):
+    signed = sign_raw(priv_key, msg).signature.hex()
+    return signed
+
+def sign_raw(priv_key, msg):
     encoded_msg = encode_defunct(text=msg)
     # Sign the message using the private key
-    signed_msg = Account.sign_message(encoded_msg, private_key=acc)
+    signed_msg = Account.sign_message(encoded_msg, private_key=priv_key)
     return signed_msg
 
-acc = CreateNew()
-msg = sign(Keys(acc), "Hello").signature.hex()
-recovered_address = Account.recover_message(
-    encode_defunct(text="Hello"), 
-    signature=msg
-)
-if recovered_address == acc.address:
-    print("Signature is VALID")
-else:
-    print("Signature is INVALID")
+def verify(address, sign, msg):
+    recovered_address = Account.recover_message(
+    encode_defunct(text=msg), 
+    signature=sign
+    )
+    if recovered_address == address:
+        return True ## Signature is valid
+    return False ## Signature Invalid
+    
+
