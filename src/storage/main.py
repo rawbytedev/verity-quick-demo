@@ -28,7 +28,10 @@ def resolve(did:str):
         return DIDRegistryResolveResponse(did=did, doc_cid=data.decode(), status="success")
     except DBError:
         return DIDRegistryResolveResponse(did=did,status="error")
-    
+
+@app.get("/health")
+def health():
+    return {"status":200}    
 """
 IFPS server Implementation
 """

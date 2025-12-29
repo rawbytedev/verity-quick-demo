@@ -1,6 +1,6 @@
 # shared_demo_models.py
 # Models used across multiple services for consistency
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 from typing import Optional, Dict, Any, List
 from datetime import datetime
 
@@ -104,6 +104,11 @@ class DemoDIDDocument(BaseModel):
     metadata: Dict[str, Any] = Field(default_factory=dict)
     created: datetime = Field(default_factory=datetime.now)
     updated: datetime = Field(default_factory=datetime.now)
+    model_config = ConfigDict(
+        json_encoders={datetime: lambda v: v.isoformat()},
+        use_enum_values=True
+    )
+    proof:Dict[str, Any] = Field(default_factory=dict)
     
 Demo = DemoDIDDocument(
     id = "did:verity:demo:election-commission",
@@ -121,7 +126,7 @@ Demo = DemoDIDDocument(
                 "organization": "Demo Election Commission",
                 "jurisdiction": "DEMO",
                 "tier": "S"
-                }
+                },
 
 
 )   
