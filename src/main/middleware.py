@@ -57,7 +57,7 @@ def _post_json(url: str, payload: dict, timeout: float = DEFAULT_TIMEOUT, retrie
     for attempt in range(1, retries + 1):
         try:
             logger.debug("POST %s attempt %d", url, attempt)
-            resp = requests.post(url, json=payload, headers=headers, timeout=timeout)
+            resp = requests.post(url, data=payload, headers=headers, timeout=timeout)
             resp.raise_for_status()
             return resp.json()
         except requests.RequestException as e:
@@ -90,8 +90,8 @@ def register(did: str, cid: str, signature: Optional[str] = None, timeout: float
     Returns a `DIDRegistryRegisterResponse` on success or raises `MiddlewareError` on failure.
     """
     url = _finalize_url("reg")
-    data = DIDRegistryRegisterRequest(did=did, doc_cid=cid, signature=signature)
-    j = _post_json(url, data.model_dump(), timeout=timeout)
+    data = DIDRegistryRegisterRequest(did=did, doc_cid=cid, signature=signature).model_dump_json()
+    j = _post_json(url, data, timeout=timeout)
     return DIDRegistryRegisterResponse.model_validate(j)
 
 

@@ -11,6 +11,7 @@ import argparse
 from claim_utils import (
     create_claim_from_file,
     create_claim_from_message,
+    pin_claim,
     sign_claim,
     store_claim,
 )
@@ -20,8 +21,10 @@ class MenuState(Enum):
     CREATE_ACCOUNT = "create_account"
     SELECT_ACCOUNT = "select_account"
     CREATE_DIDDOC = "create_diddoc"
+    REGISTER_DIDDOC = "register_diddoc"
     SIGN_DATA = "sign_data"
     VERIFY_DATA = "verify_data"
+    SAVE = "save_session"
     EXIT = "exit"
 
 class AccountSession:
@@ -46,6 +49,7 @@ class VerityDemoCLI:
     """Main CLI application with session management."""
 
     def __init__(self, io: Optional[ConsoleIO] = None):
+        self.saved = False
         self.io = io or ConsoleIO()
         self.sessions: Dict[str, AccountSession] = {}  # address -> session
         self.current_session: Optional[AccountSession] = None
@@ -70,7 +74,11 @@ class VerityDemoCLI:
                 self.handle_sign_data()
             elif self.state == MenuState.VERIFY_DATA:
                 self.handle_verify_data()
-        
+            elif self.state == MenuState.REGISTER_DIDDOC:
+                self.register_diddoc()
+            elif self.state == MenuState.SAVE:
+                self.save_session_state()
+
         print("\nThank you for using Verity Protocol Demo!")
     
     def show_main_menu(self):
@@ -85,6 +93,8 @@ class VerityDemoCLI:
             print("4. Sign a message")
             print("5. Verify a signature")
             print("6. List my DID Documents")
+            print("7. Register DID Document")
+            print("8. Save Session")
         
         print("0. Exit")
         
@@ -103,6 +113,10 @@ class VerityDemoCLI:
                 self.state = MenuState.VERIFY_DATA
             elif choice == "6":
                 self.list_diddocs()
+            elif choice == "7":
+                self.state = MenuState.REGISTER_DIDDOC
+            elif choice == "8":
+                self.state = MenuState.SAVE
         elif choice == "0":
             self.state = MenuState.EXIT
         else:
@@ -211,7 +225,7 @@ class VerityDemoCLI:
                 id=vm_id,
                 type=vm_type,
                 controller=full_did,
-                public_key_multibase=f"z{self.current_session.address[2:]}"  # Simplified for demo
+                public_key_multibase=f"eth:{self.current_session.address}"  # Simplified for demo
             )
             
             # Get service endpoints
@@ -366,7 +380,6 @@ class VerityDemoCLI:
             self.io.print(f"\n📄 DID Documents for {self.current_session.address}:")
         for i, docs in enumerate(self.current_session.diddocs, 1):
             doc = docs.model_dump()
-            self.io.print(doc)
             has_proof = "✓ Signed" if 'proofValue' in doc['proof'] else "✗ Unsigned"
             self.io.print(f"{i}. {doc['id']} - {has_proof}")
             if 'metadata' in doc:
@@ -377,19 +390,23 @@ class VerityDemoCLI:
         self.io.print("Note: Only Signed diddocs are valid")
         i = int(self.io.input("~> "))
         try:
-            doc = self.current_session.diddocs[i]
-            middleware.store(doc, True)
+            doc = self.current_session.diddocs[i-1]
+            res=middleware.store(doc, 5)
+            middleware.register(doc.id, res.cid)
+            self.io.print("DID register successfully")
         except Exception as e:
-            pass
+            self.io.print(f"Note: Error while registering DID Document {e}")
+        self.state =MenuState.MAIN
 
     def save_session_state(self, filename="verity_sessions.json"):
-        """Optional: Save sessions to file for persistence."""
+        """Save sessions to file for persistence."""
         try:
             state = {
                 "sessions": {
                     addr: {
                         "address": session.address,
-                        "diddocs": session.diddocs
+                        "privatekey":session.private_key.hex(),
+                        "diddocs": [docs.model_dump_json() for docs in session.diddocs]
                     }
                     for addr, session in self.sessions.items()
                 },
@@ -398,8 +415,10 @@ class VerityDemoCLI:
             with open(filename, 'w') as f:
                 json.dump(state, f, indent=2)
             self.io.print(f"\n💾 Session state saved to {filename}")
+            self.saved = True
         except Exception as e:
             self.io.print(f"Note: Could not save session state: {e}")
+        self.state =MenuState.MAIN
 
 def main():
     """Entry point for the CLI."""
@@ -436,18 +455,19 @@ def main():
         if args.store:
             cid = store_claim(claim)
             print(f"Stored claim; cid={cid}")
+            res = pin_claim(claim.claim_id,cid)
+            print(res)
 
         # do not continue to interactive mode
         if args.no_interactive:
             return
 
     cli = VerityDemoCLI()
-
     try:
         cli.run()
-
     except KeyboardInterrupt:
-        print("\n\n⚠️  Demo interrupted. Sessions were not saved.")
+        if cli.saved == False:
+            print("\n\n⚠️  Demo interrupted. Sessions were not saved.")
         sys.exit(0)
     except Exception as e:
         print(f"\n❌ Fatal error: {e}")

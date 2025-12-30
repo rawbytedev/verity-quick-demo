@@ -25,7 +25,7 @@ def register(req: DIDRegistryRegisterRequest):
 def resolve(did:str):
     try:
         data = db.get(did)
-        return DIDRegistryResolveResponse(did=did, doc_cid=data.decode(), status="success")
+        return DIDRegistryResolveResponse(did=did, doc_cid=data, status="success")
     except DBError:
         return DIDRegistryResolveResponse(did=did,status="error")
 

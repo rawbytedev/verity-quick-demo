@@ -7,6 +7,7 @@ from eth_account.messages import encode_defunct
 def CreateNew():
     priv_key = "0x" + secrets.token_hex(32)
     acct = Account.from_key(priv_key)
+    
     return acct
 
 def Address(acc):

@@ -1,12 +1,12 @@
 import os
 import mimetypes
 from datetime import datetime
-from typing import Optional
+from typing import Any, Dict, Optional
 
 from utils import hexhash
 from claim_model import VerityClaim, ContentType
 from signer import sign
-from middleware import store
+from middleware import register, store
 
 
 def _compute_content_hash_from_bytes(data: bytes) -> str:
@@ -106,3 +106,47 @@ def store_claim(claim: VerityClaim, did_verify: bool = False):
     """Store claim via middleware.store and return the IPFS CID string from the response."""
     resp = store(claim)
     return resp.cid
+
+def pin_claim(id, cid):
+    resp = register(id, cid)
+    return True if resp.status == "success" else False
+
+def generate_verification_url(claim: VerityClaim, base_url: str = "http://localhost:8000") -> str:
+    """Generate user-friendly verification URL for a claim."""
+    # Use claim_id for URL (more readable than CID)
+    claim_id = claim.claim_id
+    return f"{base_url}/verify/claim/{claim_id}"
+
+def create_and_register_claim(file_path: str, issuer_did: str, issuer_private_key: str, 
+                              verification_method: str = None, base_url: str = "http://localhost:8000") -> Dict[str, Any]:
+    """
+    Complete workflow: Create claim, sign it, store it, register DID, return verification URL.
+    """
+    from middleware import store, register
+    
+    # 1. Create claim from file
+    claim = create_claim_from_file(file_path, issuer_did)
+    
+    # 2. Sign the claim
+    if not verification_method:
+        verification_method = f"{issuer_did}#key-1"
+    signed_claim = sign_claim(claim, issuer_private_key, verification_method)
+    
+    # 3. Store claim (IPFS mock)
+    storage_resp = store(signed_claim.model_dump())
+    claim_cid = storage_resp.cid
+    
+    # 4. Generate verification URL
+    verification_url = generate_verification_url(signed_claim, base_url)
+    signed_claim.verification_url = verification_url
+    
+    # 5. Update stored claim with verification URL
+    store(signed_claim.model_dump())
+    
+    return {
+        "claim_id": signed_claim.claim_id,
+        "cid": claim_cid,
+        "verification_url": verification_url,
+        "issuer": issuer_did,
+        "signed_at": signed_claim.proof.get("created") if signed_claim.proof else None
+    }
