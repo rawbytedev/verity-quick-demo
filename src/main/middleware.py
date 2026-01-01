@@ -1,16 +1,17 @@
-from pydantic import BaseModel
-import requests
+"""
+Bridge communication between the frontend and the backend(IFPS+DIDregistry)
+"""
 import logging
 import time
 from typing import Optional, Union
+from pydantic import BaseModel
+import requests
 from config import HOST, PORT
-from claim_model import VerityClaim
 
 from shared_model import (
     DIDRegistryRegisterRequest,
     DIDRegistryRegisterResponse,
     DIDRegistryResolveResponse,
-    Demo,
     IPFSStoreRequest,
     IPFSStoreResponse,
     IPFSRetrieveResponse,
@@ -34,14 +35,13 @@ DEFAULT_RETRIES = 2
 
 class MiddlewareError(Exception):
     """Raised when middleware HTTP operations fail."""
-    pass
 
 
 def _finalize_url(key: str, val: Optional[str] = None) -> str:
     try:
         part = _ENDPOINTS[key]
-    except KeyError:
-        raise ValueError(f"Unknown endpoint key: {key}")
+    except KeyError as exc:
+        raise ValueError(f"Unknown endpoint key: {key}") from exc
 
     # HOST may include scheme, e.g. http://127.0.0.1
     base = f"{HOST}:{PORT}"
@@ -129,17 +129,17 @@ def retrieve(cid: str, timeout: float = DEFAULT_TIMEOUT) -> IPFSRetrieveResponse
 
 
 def health(timeout: float = DEFAULT_TIMEOUT):
+    """Checks the Health of backend"""
     url = _finalize_url("heal")
     j = _get_json(url, timeout=timeout)
     if j["status"] == 200:
         return True
     return False
-    
 
 if __name__ == "__main__":
     # small demo when run directly (keeps previous CLI-style prints for convenience)
     try:
-        resp = register("did:dz", cid="dffe")
-        print(resp.model_dump())
+        DIDresp = register("did:dz", cid="dffe")
+        print(DIDresp.model_dump())
     except Exception as e:
         print("register failed:", e)

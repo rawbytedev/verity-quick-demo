@@ -1,8 +1,11 @@
-from pydantic import BaseModel, Field, ConfigDict
+"""
+Claim pydantic models
+"""
 from datetime import datetime
 from typing import Optional, Dict, Any, List
 from enum import Enum
-
+from pydantic import BaseModel, Field, ConfigDict
+from utils import hexhash
 class ContentType(str, Enum):
     """Type of content being claimed."""
     IMAGE = "image"
@@ -104,6 +107,6 @@ class VerityClaim(BaseModel):
 
     def generate_claim_id(self) -> str:
         """Helper to generate a unique ID based on content and issuer."""
-        import hashlib
         data = f"{self.issuer['id']}{self.content_hash}{self.issuance_date.isoformat()}"
-        return f"claim_{hashlib.sha256(data.encode()).hexdigest()[:16]}"
+
+        return f"claim_{hexhash(data.encode())[:16]}"

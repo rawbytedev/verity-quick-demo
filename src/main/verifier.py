@@ -1,6 +1,6 @@
 from datetime import datetime
 import logging
-from typing import Dict, Any, Optional
+from typing import Dict, Optional
 from fastapi import FastAPI, HTTPException, APIRouter
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
@@ -35,6 +35,7 @@ def _extract_address_from_vm(vm: VerificationMethod) -> Optional[str]:
     pk = vm.public_key_multibase
     if pk.startswith("eth:"):
         return pk[4:]
+    return pk
 
 async def verify_claim_chain(claim_cid: str) -> VerificationResult:
     """
@@ -46,85 +47,84 @@ async def verify_claim_chain(claim_cid: str) -> VerificationResult:
         issuer={},
         verification_time=datetime.now().isoformat()
     )
-    
+
     try:
         # Step 1: Retrieve the claim from storage
         claim_resp = retrieve(claim_cid)
         if not claim_resp.exists:
             result.error_message = f"Claim not found: {claim_cid}"
             return result
-            
+
         claim_dict = claim_resp.document
         claim = VerityClaim.model_validate(claim_dict)
         result.claim_id = claim.claim_id
         result.steps["claim_retrieved"] = True
-        
+
         # Step 2: Extract issuer DID
         issuer_did = claim.issuer["id"] if isinstance(claim.issuer, dict) else claim.issuer
         if not issuer_did:
             result.error_message = "No issuer DID in claim"
             return result
-            
+
         result.issuer = {"did": issuer_did}
-        
+
         # Step 3: Resolve DID to CID
         did_resp = resolve(issuer_did)
         if did_resp.status != "success" or not did_resp.doc_cid:
             result.error_message = f"DID resolution failed: {issuer_did}"
             return result
-            
+
         result.steps["did_resolved"] = True
-        
+
         # Step 4: Retrieve DID Document
         diddoc_resp = retrieve(did_resp.doc_cid)
         if not diddoc_resp.exists:
             result.error_message = f"DID Document not found: {did_resp.doc_cid}"
             return result
-            
+
         diddoc_dict = diddoc_resp.document
         diddoc = DemoDIDDocument.model_validate(diddoc_dict)
         result.steps["diddoc_retrieved"] = True
-        
+
         # Extract issuer metadata
         result.issuer_name = diddoc.metadata.get("organizationName", "Unknown Organization")
         result.verification_tier = diddoc.metadata.get("tier", "Unknown")
-        
+
         # Step 5: Validate signature
         if not claim.proof or "proofValue" not in claim.proof:
             result.error_message = "No signature proof in claim"
             return result
-            
+
         signature = claim.proof["proofValue"]
         # Recreate the exact payload that was signed
         # Remove proof for verification since it wasn't part of signed payload
         claim.proof =None
         claim.verification_url = None
         message_to_verify = claim.model_dump_json()
-        
+
         # Step 6: Check all verification methods in DID Document
         signature_valid = False
         authorized_method = None
-        
+
         for vm in diddoc.verification_method:
             address = _extract_address_from_vm(vm)
             if address and verify(address, signature, message_to_verify):
                 signature_valid = True
                 authorized_method = vm.id
                 break
-        
+
         if not signature_valid:
             result.error_message = "Signature does not match any authorized key in DID Document"
             return result
-            
+
         result.steps["signature_valid"] = True
         result.steps["issuer_authorized"] = True
         result.verified = True
         result.issuer["authorized_method"] = authorized_method
-        
+
     except Exception as e:
         logger.exception(f"Verification failed for {claim_cid}")
         result.error_message = f"Verification error: {str(e)}"
-    
     return result
 
 
@@ -135,11 +135,11 @@ async def verify_by_claim_id(claim_id: str):
     if claim_id.startswith("claim_"):
         res = resolve(claim_id)
         try:
-                    result = await verify_claim_chain(res.doc_cid)
-                    if result.steps["claim_retrieved"]:
-                        return result
-        except:
-            raise HTTPException(status_code=500, detail=f"Internal error: {claim_id}")
+            result = await verify_claim_chain(res.doc_cid)
+            if result.steps["claim_retrieved"]:
+                return result
+        except Exception as exc:
+            raise HTTPException(status_code=500, detail=f"Internal error: {claim_id}") from exc
     elif claim_id.startswith("cid_"):
         return await verify_claim_chain(claim_id)
     raise HTTPException(status_code=404, detail=f"Claim not found: {claim_id}")

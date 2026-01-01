@@ -1,8 +1,10 @@
+"""
+CLI init test
+"""
 import sys
 import types
 from types import SimpleNamespace
 import cli
-from shared_model import DemoDIDDocument
 
 
 class FakeIO:
@@ -34,9 +36,9 @@ def test_sign_diddoc_attaches_proof(monkeypatch):
     app.sessions[acct.address] = session
     app.current_session = session
 
-    # attach a demo DID document (deep copy of the shared Demo instance)
-    from shared_model import Demo
-    diddoc = Demo.model_copy(deep=True)
+    # attach a demo DID document (deep copy of the shared DEMO instance)
+    from shared_model import DEMO
+    diddoc = DEMO.model_copy(deep=True)
     app.current_session.diddocs.append(diddoc)
 
     # monkeypatch sign() to a simple deterministic value
@@ -69,7 +71,7 @@ def test_main_headless_flow_calls_helpers(monkeypatch, capsys):
 
     def fake_store_claim(claim):
         return "cid-abc"
-    
+
     def fake_pin_claim(claim_id, cid):
         return "success"
 

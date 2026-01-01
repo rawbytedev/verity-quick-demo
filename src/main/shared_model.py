@@ -1,8 +1,12 @@
+"""
 # shared_demo_models.py
 # Models used across multiple services for consistency
-from pydantic import BaseModel, ConfigDict, Field
-from typing import Optional, Dict, Any, List
+"""
 from datetime import datetime
+from typing import Optional, Dict, Any, List
+from pydantic import BaseModel, ConfigDict, Field
+
+
 
 # ---------- DID Registry Service Models ----------
 class DIDRegistryRegisterRequest(BaseModel):
@@ -99,7 +103,7 @@ class DemoDIDDocument(BaseModel):
     verification_method: List[VerificationMethod] = Field(default_factory=list)
     authentication: List[str] = Field(default_factory=list)
     service: List[ServiceEndpoint] = Field(default_factory=list)
-    
+
     # Demo-specific extensions
     metadata: Dict[str, Any] = Field(default_factory=dict)
     created: datetime = Field(default_factory=datetime.now)
@@ -108,8 +112,8 @@ class DemoDIDDocument(BaseModel):
         use_enum_values=True
     )
     proof:Dict[str, Any] = Field(default_factory=dict)
-    
-Demo = DemoDIDDocument(
+
+DEMO = DemoDIDDocument(
     id = "did:verity:demo:election-commission",
     verification_method=[VerificationMethod(id="did:verity:demo:election-commission#key-1",
                                             type="Ed25519VerificationKey2020",
@@ -126,20 +130,19 @@ Demo = DemoDIDDocument(
                 "jurisdiction": "DEMO",
                 "tier": "S"
                 },
-
-
-)   
+)
 class ExampleDID:
-        json_schema_extra = {
-            "example": {
-                "id": "did:verity:demo:election-commission",
-                "verification_method": [
-                    {
-                        "id": "did:verity:demo:election-commission#key-1",
-                        "type": "Ed25519VerificationKey2020",
-                        "controller": "did:verity:demo:election-commission",
-                        "public_key_multibase": "z6MkqYqJ8Z4ZQZ4ZQZ4ZQZ4ZQZ4ZQZ4ZQZ4ZQZ4ZQZ4ZQZ4ZQZ4ZQZ4Z"
-                    }
+    """An Example that showcase the format of a DIDDOC"""
+    json_schema_extra = {
+        "example": {
+            "id": "did:verity:demo:election-commission",
+            "verification_method": [
+                {
+                    "id": "did:verity:demo:election-commission#key-1",
+                    "type": "Ed25519VerificationKey2020",
+                    "controller": "did:verity:demo:election-commission",
+                    "public_key_multibase": "z6MkqYqJ8Z4ZQZ4ZQZ4ZQZ4ZQZ4ZQZ4ZQZ4ZQZ4ZQZ4ZQZ4ZQZ4ZQZ4Z"
+                }
                 ],
                 "authentication": ["did:verity:demo:election-commission#key-1"],
                 "service": [

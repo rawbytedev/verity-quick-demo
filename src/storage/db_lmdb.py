@@ -1,14 +1,34 @@
-import lmdb as tool
+"""
+Wrapper around lmdb for storage(store + index)
+"""
 from collections import OrderedDict
+import lmdb as tool
 from utils import dighash
 
 CACHESIZE = 30
 
 class DBError(Exception):
-    pass
+    """
+    Error class for DB
+    """
 
 class DB:
+    """
+    DB wrapper around lmdb
+
+    :var Returns: Description
+    :var prefix_bytes: Description
+    :vartype prefix_bytes: Any
+    """
     def __init__(self, path="store.db", index_path="index.db", max_dbs=2):
+        """
+        Initialize the wrapper
+        
+        :param self: Description
+        :param path: Path for store
+        :param index_path: Path for index
+        :param max_dbs: Max number of db
+        """
         self.cache = OrderedDict()
         self.cache_size = CACHESIZE
         self.db = tool.open(path, max_dbs=max_dbs)
@@ -20,9 +40,15 @@ class DB:
         self.cache[key] = value
 
     def get(self, key):
+        """
+        Retrieve the value using a key from db
+        
+        :param self: Description
+        :param key: key to retrieve
+        """
         if not key:
             raise DBError("Key can't be empty")
-        key ,_=self.handler(key)
+        key ,_=self._handler(key)
         if key in self.cache:
             return self.cache[key]
         with self.db.begin(write=False) as txn:
@@ -35,11 +61,19 @@ class DB:
             return decoded
 
     def put(self, key, value):
+        """
+        Stores a value into DB using specified key
+        replaces a value if the key is already present
+
+        :param self: Description
+        :param key: key to use
+        :param value: value to store
+        """
         if not key:
             raise DBError("Key can't be empty")
         if not value:
             raise DBError("Value can't be empty")
-        key ,value=self.handler(key, value)
+        key ,value=self._handler(key, value)
         self._cache_set(key, value)
 
         hash_key = dighash(key)
@@ -49,9 +83,9 @@ class DB:
             with self.index.begin(write=True) as txn:
                 txn.put(key, hash_key)
         except Exception as e:
-            raise DBError(f"Can't insert item: {key}:{value}")
-        
-    def handler(self,key=None, value=None):
+            raise DBError(f"Can't insert item: {key}:{value}") from e
+
+    def _handler(self,key=None, value=None):
         if key and isinstance(key, str):
             key = key.encode()
         if value and isinstance(value, str):
@@ -70,7 +104,8 @@ class DB:
             prefix_bytes = prefix.encode()
             if cursor.set_range(prefix_bytes):
                 with self.db.begin(write=False) as dtxn:
-                    # iterate from the current cursor position and stop when keys no longer match the prefix
+                    # iterate from the current cursor position and
+                    # stop when keys no longer match the prefix
                     for k, v in cursor:
                         if not k.startswith(prefix_bytes):
                             break
@@ -84,6 +119,11 @@ class DB:
         return results
 
     def close(self):
+        """
+        closes the DB, clear caches
+        
+        :param self: Description
+        """
         self.cache.clear()
         self.db.close()
         self.index.close()

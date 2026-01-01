@@ -1,3 +1,5 @@
+"""
+"""
 import types
 
 from claim_utils import create_claim, sign_claim, store_claim

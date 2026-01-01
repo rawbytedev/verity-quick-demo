@@ -1,4 +1,4 @@
-from signer import CreateNew, Address, Keys, verify
+from signer import create_new_eth, eth_addr, eth_key, verify
 from claim_utils import create_claim, sign_claim
 from shared_model import DemoDIDDocument, VerificationMethod
 
@@ -20,9 +20,9 @@ def test_claim_verification_success():
     claim = create_claim(message="Verify me",issuer_did=issuer)
 
     # create a new keypair to sign
-    acct = CreateNew()
-    addr = Address(acct)
-    priv = Keys(acct)
+    acct = create_new_eth()
+    addr = eth_addr(acct)
+    priv = eth_key(acct)
 
     # create a DID doc for the issuer that contains the verification method pointing to this address
     vm_id = f"{issuer}#key-1"
@@ -53,12 +53,12 @@ def test_claim_verification_fails_with_wrong_key():
     claim = create_claim(message="Do not verify me", issuer_did=issuer)
 
     # signer uses one keypair
-    signer_acct = CreateNew()
-    signer_priv = Keys(signer_acct)
+    signer_acct = create_new_eth()
+    signer_priv = eth_key(signer_acct)
 
     # DID doc lists a different key
-    other_acct = CreateNew()
-    other_addr = Address(other_acct)
+    other_acct = create_new_eth()
+    other_addr = eth_addr(other_acct)
     vm_id = f"{issuer}#key-1"
     vm = VerificationMethod(id=vm_id, type="Ed25519VerificationKey2020", controller=issuer, public_key_multibase=f"eth:{other_addr}")
     diddoc = DemoDIDDocument(id=issuer, verification_method=[vm], authentication=[vm_id], service=[])
@@ -75,16 +75,16 @@ def test_claim_verification_with_diff_keys():
     claim = create_claim(message="Do not verify me", issuer_did=issuer)
 
     # signer uses one keypair
-    signer_acct = CreateNew()
-    signer_priv = Keys(signer_acct)
-    signer_addr = Address(signer_acct)
+    signer_acct = create_new_eth()
+    signer_priv = eth_key(signer_acct)
+    signer_addr = eth_addr(signer_acct)
     m_vm_id = f"{issuer}#key-1"
     m_vm = VerificationMethod(id=m_vm_id, type="Ed25519VerificationKey2020", controller=issuer,
     public_key_multibase=f"eth:{signer_addr}")
     # DID doc lists a different key
-    other_acct = CreateNew()
-    other_priv = Keys(other_acct)
-    other_addr = Address(other_acct)
+    other_acct = create_new_eth()
+    other_priv = eth_key(other_acct)
+    other_addr = eth_addr(other_acct)
     vm_id = f"{issuer}#key-2"
     vm = VerificationMethod(id=vm_id, type="Ed25519VerificationKey2020", controller="Masters", public_key_multibase=f"eth:{other_addr}")
     ## add both keys to DIDDOC
