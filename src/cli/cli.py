@@ -223,7 +223,7 @@ class VerityDemoCLI:
         # Create verification method for the current account
         ### VERIFICATION
 
-        user_input["vm_id"] = f"{user_input["full_did"]}#key-1"
+        user_input["vm_id"] = f'{user_input["full_did"]}#key-1'
 
         self.io.print("\n--- Verification Method ---")
         self.io.print(f"Default key ID: {user_input["vm_id"]}")
