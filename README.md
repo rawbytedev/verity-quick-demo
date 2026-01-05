@@ -1,5 +1,5 @@
 # verity-quick-demo
-[![Python application](https://github.com/Verity-Foundation/verity-quick-demo/actions/workflows/python-app.yml/badge.svg)](https://github.com/Verity-Foundation/verity-quick-demo/actions/workflows/python-app.yml)
+[![Python application](https://github.com/Verity-Foundation/verity-quick-demo/actions/workflows/python-app.yml/badge.svg)](https://github.com/Verity-Foundation/verity-quick-demo/actions/workflows/python-app.yml)[![Pylint](https://github.com/Verity-Foundation/verity-quick-demo/actions/workflows/pylint.yml/badge.svg)](https://github.com/Verity-Foundation/verity-quick-demo/actions/workflows/pylint.yml)
 
 This repository contains a small demo of Verity protocol components: a CLI for creating DID documents and verifiable claims, signing them, and storing claims using a mock IPFS/registry middleware. The code is intentionally small and focused on demonstrating the core flows: claim generation, signing, and storing.
 
