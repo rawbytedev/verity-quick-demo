@@ -2,9 +2,9 @@
 Docstring for main
 """
 import sys
-from src.cli import main, VerityDemoCLI
+from src.cli import VerityDemoCLI
 
-## Still in development
+
 if __name__ == "__main__":
     v = VerityDemoCLI()
     #v.handle_create_account()
@@ -17,6 +17,6 @@ if __name__ == "__main__":
     #            'Test claim', '--issuer', 'did:verity:gov:demo-election-comm', "--store"]
     try:
         v.run()
-        main()
+        #main()
     except SystemExit:
         pass

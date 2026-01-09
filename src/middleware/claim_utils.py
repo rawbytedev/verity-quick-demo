@@ -117,7 +117,7 @@ def _create_claim_from_message(message: str, issuer_did: str) -> VerityClaim:
     return claim
 
 
-def sign_claim(claim: VerityClaim, priv_key_hex: str, verification_method: str) -> VerityClaim:
+def sign_claim(claim: VerityClaim, priv_key_hex: str) -> VerityClaim:
     """Sign the claim using the provided private key hex string and attach proof."""
     # Serialize claim deterministically
     payload = claim.model_dump_json()
@@ -126,7 +126,6 @@ def sign_claim(claim: VerityClaim, priv_key_hex: str, verification_method: str) 
     proof = {
         "type": "Ed25519Signature2020",
         "created": datetime.now().isoformat(),
-        "verificationMethod": verification_method,
         "proofValue": signature,
         "signer": claim.issuer.get("id"),
     }
@@ -161,7 +160,7 @@ def create_and_register_claim(file_path: str, issuer_did: str,
     # 2. Sign the claim
     if not verification_method:
         verification_method = f"{issuer_did}#key-1"
-    signed_claim = sign_claim(claim, issuer_private_key, verification_method)
+    signed_claim = sign_claim(claim=claim, priv_key_hex=issuer_private_key)
 
     # 3. Store claim (IPFS mock) and map claim to cid
     cid = store_claim(signed_claim)

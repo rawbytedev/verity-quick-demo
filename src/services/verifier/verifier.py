@@ -119,8 +119,9 @@ async def verify_claim_chain(claim_cid: str) -> VerificationResult:
         signature = claim.proof["proofValue"]
         # Recreate the exact payload that was signed
         # Remove proof for verification since it wasn't part of signed payload
-        message_to_verify = claim.model_dump_json(exclude={'proof', 'verification_url'})
-
+        claim.proof = None
+        claim.verification_url = None
+        message_to_verify = claim.model_dump_json()
         # Step 6: Check all verification methods in DID Document
         signature_valid = False
         authorized_method = None

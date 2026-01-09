@@ -1,25 +1,22 @@
 """
-CLI the main interface to generate diddocs/claims, sign them, register them
+CLI: Main interface to generate DID documents and claims, sign them, register them.
 """
 import sys
 import traceback
-import json
-from datetime import datetime
-from typing import Dict, List, Optional
+from typing import Dict, Optional
 from enum import Enum
 import argparse
 from pydantic import BaseModel
-from src.core import sign, verify, eth_key, create_new_eth, eth_addr
 from src.core.models import DemoDIDDocument, VerificationMethod, ServiceEndpoint
-from src.middleware import create_claim, pin_claim, register, sign_claim, store, store_claim
+from src.core.io import ConsoleIO
+from src.core.exceptions import VerityCliError
+from src.middleware import create_claim, pin_claim, sign_claim, store_claim
+from src.backend import VerityDemo
 
 
-class CLIError(Exception):
-    """
-    Docstring for CLIError
-    """
 class MenuState(Enum):
-    "Menu States specifies all state taken by the menu"
+    """Menu states for CLI navigation."""
+
     MAIN = "main"
     CREATE_ACCOUNT = "create_account"
     SELECT_ACCOUNT = "select_account"
@@ -30,52 +27,9 @@ class MenuState(Enum):
     SAVE = "save_session"
     EXIT = "exit"
     LISTDID = "list_did"
-    PRIVKEY= "priv_key"
+    PRIVKEY = "priv_key"
+    CLAIM = "create_claims"
 
-class AccountSession:
-    """Manages a single account session with its keys and state."""
-    def __init__(self, account_data: dict):
-        self.account = account_data
-        self.address = eth_addr(account_data)
-        self.private_key = eth_key(account_data)
-        self.diddocs: List[BaseModel] = []
-        self.current_diddoc: Optional[BaseModel] = None
-
-    def setcurrent_diddoc(self,diddoc:BaseModel):
-        """
-        Set the current diddoc for signing
-        """
-        if diddoc is None:
-            return
-        self.current_diddoc = diddoc
-        return
-
-    def add_diddoc(self, diddoc:BaseModel):
-        """
-        Add a new diddocs to session
-        """
-        if diddoc is None:
-            return
-        self.diddocs.append(diddoc)
-        self.setcurrent_diddoc(diddoc)
-        return
-
-class ConsoleIO:
-    """Thin wrapper around input/print so we can inject test doubles."""
-    def input(self, prompt: str = "") -> str:
-        """
-        Read a string from standard input. The trailing newline is stripped.
-
-The prompt string, if given, is printed to standard output without a
-trailing newline before reading input.
-        """
-        return input(prompt)
-
-    def print(self, *args, **kwargs) -> None:
-        """
-        Prints the values to a stream, or to sys.stdout by default.
-        """
-        print(*args, **kwargs)
 
 class VerityDemoCLI:
     """Main CLI application with session management."""
@@ -83,9 +37,8 @@ class VerityDemoCLI:
     def __init__(self, io: Optional[ConsoleIO] = None):
         self.saved = False
         self.io = io or ConsoleIO()
-        self.sessions: Dict[str, AccountSession] = {}  # address -> session
-        self.current_session: Optional[AccountSession] = None
         self.state = MenuState.MAIN
+        self.verity = VerityDemo()
 
     def run(self):
         """Main CLI loop."""
@@ -99,9 +52,10 @@ class VerityDemoCLI:
             MenuState.CREATE_DIDDOC:self.handle_create_diddoc,
             MenuState.SIGN_DATA:self.handle_sign_data,
             MenuState.REGISTER_DIDDOC:self.register_diddoc,
-            MenuState.SAVE:self.save_session_state,
+            #MenuState.SAVE:self.save_session_state,
             MenuState.LISTDID:self.list_diddocs,
             MenuState.PRIVKEY:self.export_priv_key,
+            MenuState.CLAIM:self.create_claim_opts
             }
         while self.state != MenuState.EXIT:
             state[self.state]()
@@ -110,76 +64,76 @@ class VerityDemoCLI:
 
     def show_main_menu(self):
         """Display the main menu based on current session state."""
-        if self.current_session:
-            self.io.print(f"\n{' CURRENT SESSION: ' + self.current_session.address}")
+        active, addr = self.verity.is_active()
+        if active:
+            self.io.print(f"\n{' CURRENT SESSION: ' + addr}")
         else:
             self.io.print(f"\n{' No active session ':-^50}")
         self.io.print("\nMAIN MENU:")
         print("1. Create new account")
         print("2. Select existing account")
 
-        if self.current_session:
+        if active:
             print("3. Create DID Document")
             print("4. Sign a message")
             print("5. Verify a signature")
             print("6. List my DID Documents")
             print("7. Register DID Document")
-            print("8. Save Session")
+            print("8. Save Session (Disabled)")
             print("9. Export Private Key")
+            print("10. Create Claims")
 
         print("0. Exit")
 
         choice = self.io.input("\nSelect option: ").strip()
-        menu ={
-            "1":MenuState.CREATE_ACCOUNT,
-            "2":MenuState.SELECT_ACCOUNT,
-            "3":MenuState.CREATE_DIDDOC,
-            "4":MenuState.SIGN_DATA,
-            "5":MenuState.VERIFY_DATA,
-            "6":MenuState.LISTDID,
-            "7":MenuState.REGISTER_DIDDOC,
-            "8":MenuState.SAVE,
-            "9":MenuState.PRIVKEY,
-            "0":MenuState.EXIT
-            }
+        menu = {
+            "1": MenuState.CREATE_ACCOUNT,
+            "2": MenuState.SELECT_ACCOUNT,
+            "3": MenuState.CREATE_DIDDOC,
+            "4": MenuState.SIGN_DATA,
+            "5": MenuState.VERIFY_DATA,
+            "6": MenuState.LISTDID,
+            "7": MenuState.REGISTER_DIDDOC,
+            "8": MenuState.SAVE,
+            "9": MenuState.PRIVKEY,
+            "10": MenuState.CLAIM,
+            "0": MenuState.EXIT,
+        }
         try:
             self.state = menu[choice]
-        except CLIError:
+        except KeyError:
             self.io.print("Invalid option. Please try again.")
 
     def handle_create_account(self):
         """Create a new account and set it as current session."""
-        self.io.print("\n" + "-"*30)
+        self.io.print("\n" + "-" * 30)
         self.io.print("CREATE NEW ACCOUNT")
-        self.io.print("-"*30)
+        self.io.print("-" * 30)
 
         try:
-            # Use your existing createNew function
-            new_account = create_new_eth()
-            address = eth_addr(new_account)
-
-            session = AccountSession(new_account)
-            self.sessions[address] = session
-            self.current_session = session
-
+            address = self.verity.create_account()
             self.io.print("\n✅ Account created successfully!")
             self.io.print(f"   Address: {address}")
             self.io.print("   Private key stored in session")
 
             # Ask if user wants to create a DIDDoc immediately
-            create_now = self.io.input("\nCreate a DID Document for " \
-            "this account now? (y/N): ").lower()
-            if create_now == 'y':
+            create_now = (
+                self.io.input("\nCreate a DID Document for "
+                              "this account now? (y/N): ")
+                .lower()
+            )
+            if create_now == "y":
                 self.state = MenuState.CREATE_DIDDOC
             else:
                 self.state = MenuState.MAIN
-        except CLIError as e:
+        except VerityCliError as e:
             self.io.print(f"❌ Error creating account: {e}")
             self.state = MenuState.MAIN
 
     def handle_select_account(self):
         """Select from existing accounts."""
-        if not self.sessions:
+        accounts= self.verity.list_account()
+        if not accounts:
             print("\n❌ No accounts exist yet. Create one first.")
             self.state = MenuState.MAIN
             return
@@ -188,12 +142,14 @@ class VerityDemoCLI:
         self.io.print("SELECT ACCOUNT")
         self.io.print("-"*30)
 
-        addresses = list(self.sessions.keys())
+        addresses = accounts[0]
         for i, addr in enumerate(addresses, 1):
             print(f"{i}. {addr}")
-            if self.sessions[addr].diddocs:
-                print(f"   ({len(self.sessions[addr].diddocs)} DID Documents)")
-
+            try:
+                doccount = accounts[1][addr]
+                print(f"   ({doccount} DID Documents)")
+            except KeyError:
+                continue
         self.io.print("0. Back to main menu")
 
         try:
@@ -204,9 +160,10 @@ class VerityDemoCLI:
 
             idx = int(choice) - 1
             if 0 <= idx < len(addresses):
-                self.current_session = self.sessions[addresses[idx]]
-                self.io.print(f"\n✅ Switched to account: {addresses[idx]}")
-                self.state = MenuState.MAIN
+                res = self.verity.select_account_by_index(idx + 1)
+                if res:
+                    self.io.print(f"\n✅ Switched to account: {addresses[idx]}")
+                    self.state = MenuState.MAIN
             else:
                 self.io.print("Invalid selection.")
         except ValueError:
@@ -214,35 +171,20 @@ class VerityDemoCLI:
 
     def handle_create_diddoc(self):
         """Interactive DID Document creation with user input."""
-        if not self.current_session:
+        active, addr = self.verity.is_active()
+        if not active:
             print("❌ No active session. Please select an account first.")
             self.state = MenuState.MAIN
             return
         self.io.print("\n" + "="*50+"\nCREATE DID DOCUMENT"+"="*50)
-        self.io.print(f"Creating for account: {self.current_session.address}")
+        self.io.print(f"Creating for account: {addr}")
         ## Basic Information
         user_input = self.basic_input()
         if user_input is None:
             return
-        # Create verification method for the current account
+        # Create verification methods for the current account
         ### VERIFICATION
-
-        user_input["vm_id"] = f'{user_input["full_did"]}#key-1'
-
-        self.io.print("\n--- Verification Method ---")
-        self.io.print(f"Default key ID: {user_input["vm_id"]}")
-
-        # Get key type (with default)
-        user_input["vm_type"] = self.io.input("Key type "
-        "[Ed25519VerificationKey2020]: ").strip() or "Ed25519VerificationKey2020"
-
-        # Create verification method using current account's address as the public key reference
-        verification_method = VerificationMethod(
-            id=user_input["vm_id"],
-            type=user_input["vm_type"],
-            controller=user_input["full_did"],
-            public_key_multibase=f"eth:{self.current_session.address}"  # Simplified for demo
-            )
+        verification_methods= self.verification_method_input(user_input, addr)
 
         # Get service endpoints
         ### SERVICES
@@ -275,17 +217,19 @@ class VerityDemoCLI:
         # Create the DID Document
         diddoc = DemoDIDDocument(
             id=user_input["full_did"],
-            verification_method=[verification_method],
+            verification_method=verification_methods,
             authentication=[user_input["vm_id"]],
             service=services,
             metadata={
                 "organizationName": org_name,
                 "jurisdiction": jurisdiction,
                 "tier": user_input["tier"],
-                "createdBy": self.current_session.address
+                "createdBy": addr
                 }
             )
-        self.current_session.add_diddoc(diddoc)
+        res = self.verity.add_diddoc(diddoc)
+        if not res:
+            self.io.print("Unable to add diddoc")
         self.io.print(f"\n{'✅ SUCCESS! ':=^50}")
         self.io.print("DID Document created:")
         self.io.print(f"  DID: {user_input["full_did"]}")
@@ -317,37 +261,83 @@ class VerityDemoCLI:
         f"verity:{user_input["did_namespace"]}:{user_input["did_entity"]}"
         return user_input
 
+    def verification_method_input(self, user_input:Dict, addr) -> list[VerificationMethod]:
+        """Takes input for verification methods and return it all at once"""
+        verification_methods:list[VerificationMethod] = []
+
+        # First verification method (with defaults)
+        user_input["vm_id"] = f'{user_input["full_did"]}#key-1'
+
+        self.io.print("\n--- Verification Method (Primary) ---")
+        self.io.print(f"Default key ID: {user_input["vm_id"]}")
+
+        # Get key type (with default)
+        user_input["vm_type"] = self.io.input("Key type "
+        "[Ed25519VerificationKey2020]: ").strip() or "Ed25519VerificationKey2020"
+
+        # Create verification method using current account's address as the public key reference
+        verification_method = VerificationMethod(
+            id=user_input["vm_id"],
+            type=user_input["vm_type"],
+            controller=user_input["full_did"],
+            public_key_multibase=f"eth:{addr}"  # Simplified for demo
+            )
+        verification_methods.append(verification_method)
+
+        # Allow adding additional verification methods
+        vm_counter = 2
+        while True:
+            add_vm = self.io.input("\nAdd another verification method? (y/N): ").lower()
+            if add_vm != 'y':
+                break
+
+            self.io.print(f"\n--- Additional Verification Method #{vm_counter} ---")
+
+            vm_id = self.io.input("Verification method ID "
+            f"[{user_input['full_did']}#key-{vm_counter}]: "
+            "").strip() or f"{user_input['full_did']}#key-{vm_counter}"
+            vm_type = self.io.input("Key type "
+            "[Ed25519VerificationKey2020]: ").strip() or "Ed25519VerificationKey2020"
+
+            controller = self.io.input("Controller DID "
+            f"[{user_input['full_did']}]: ").strip() or user_input['full_did']
+
+            public_key = self.io.input("Public key multibase (e.g., eth:0x... or z...): ").strip()
+
+            if not public_key:
+                self.io.print("⚠️  Public key is required. Skipping this verification method.")
+                continue
+
+            additional_vm = VerificationMethod(
+                id=vm_id,
+                type=vm_type,
+                controller=controller,
+                public_key_multibase=public_key
+            )
+            verification_methods.append(additional_vm)
+            self.io.print(f"✅ Added verification method: {vm_type}")
+            vm_counter += 1
+        return verification_methods
     def sign_diddoc(self, diddoc: BaseModel):
         """Sign the DID Document with current account's private key."""
         try:
-            # Serialize the DID Document for signing
-            message = diddoc.model_dump_json()
-
-            # Use sign function
-            signature = sign(self.current_session.private_key, message)
-
-            self.io.print("\n📝 DID Document signed successfully!")
-            self.io.print(f"   Signature: {signature[:50]}...")
-            diddoc.proof = {
-                "type": "Ed25519Signature2020",
-                "created": datetime.now().isoformat(),
-                "verificationMethod": diddoc.verification_method[0].id,
-                "proofValue": signature,
-                "signer": self.current_session.address
-            }
-        except CLIError as e:
+            res = self.verity.sign_diddoc(diddoc)
+            if res:
+                self.io.print("\n📝 DID Document signed successfully!")
+        except VerityCliError as e:
             print(f"❌ Error signing: {e}")
 
     def handle_sign_data(self):
         """Sign arbitrary data with current account."""
-        if not self.current_session:
+        active, addr = self.verity.is_active()
+        if not active:
             print("❌ No active session.")
             self.state = MenuState.MAIN
             return
 
         self.io.print("\n" + "-"*30)
         self.io.print("SIGN DATA")
-        self.io.print(f"Using account: {self.current_session.address}")
+        self.io.print(f"Using account: {addr}")
         self.io.print("-"*30)
 
         message = self.io.input("\nEnter message to sign: ").strip()
@@ -357,19 +347,13 @@ class VerityDemoCLI:
             return
 
         try:
-            signature = sign(self.current_session.private_key, message)
-            self.io.print("\n✅ Signature created:")
-            self.io.print(f"   Message: {message[:50]}{'...' if len(message) > 50 else ''}")
-            self.io.print(f"   Signature: {signature}")
-            self.io.print("\n📋 Full output for verification:")
-            self.io.print(json.dumps({
-                "message": message,
-                "signature": signature,
-                "signer": self.current_session.address,
-                "timestamp": datetime.now().isoformat()
-            }, indent=2))
-
-        except CLIError as e:
+            res = self.verity.sign_data(message)
+            if res:
+                self.io.print("\n✅ Signature created:")
+                self.io.print(f"   Message: {message[:50]}{'...' if len(message) > 50 else ''}")
+                self.io.print("\n📋 Full output for verification:")
+                self.io.print(res)
+        except VerityCliError as e:
             print(f"❌ Error signing: {e}")
 
     def handle_verify_data(self):
@@ -388,26 +372,25 @@ class VerityDemoCLI:
                 return
 
             # Use your existing verify function
-            is_valid = verify(signer_address, signature, message)
+            is_valid = self.verity.verify_data(signer_address, signature, message)
 
             self.io.print(f"\n{'✅ SIGNATURE VALID' if is_valid else '❌ SIGNATURE INVALID'}")
             self.io.print(f"   Signer: {signer_address}")
             self.io.print(f"   Message: {message[:50]}{'...' if len(message) > 50 else ''}")
-        except CLIError as e:
+        except VerityCliError as e:
             print(f"❌ Error during verification: {e}")
 
     def list_diddocs(self, local:bool=False):
         """List all DID Documents for current session."""
-        if not self.current_session or not self.current_session.diddocs:
+        docs = self.verity.list_diddocs()
+        if not docs:
             print("No DID Documents created yet.")
+            self.state = MenuState.MAIN
             return
-        self.io.print(f"\n📄 DID Documents for {self.current_session.address}:")
-        for i, docs in enumerate(self.current_session.diddocs, 1):
-            doc = docs.model_dump()
-            has_proof = "✓ Signed" if 'proofValue' in doc['proof'] else "✗ Unsigned"
-            self.io.print(f"{i}. {doc['id']} - {has_proof}")
-            if 'metadata' in doc:
-                self.io.print(f"   Org: {doc['metadata'].get('organizationName', 'Unknown')}")
+
+        self.io.print(f"\n📄 DID Documents for {self.verity.curr_account()}:")
+        for _, doc in enumerate(docs, 1):
+            self.io.print(doc)
         if not local:
             self.state = MenuState.MAIN
 
@@ -417,48 +400,47 @@ class VerityDemoCLI:
         self.io.print("Note: Only diddocs that contains proofs(signed) are valid")
         i = int(self.io.input("~> "))
         try:
-            doc = self.current_session.diddocs[i-1]
-            res = store(doc, 5)
-            register(doc.id, res.cid)
-            self.io.print("DID register successfully")
-        except CLIError as e:
+            res = self.verity.register_diddoc(i-1)
+            if res:
+                self.io.print("DID register successfully")
+        except VerityCliError as e:
             self.io.print(f"Note: Error while registering DID Document {e}")
-        self.state =MenuState.MAIN
-
-    def save_session_state(self, filename="verity_sessions.json"): ## Improve it
-        """Save sessions to file for persistence."""
-        try:
-            state = {
-                "sessions": {
-                    addr: {
-                        "address": session.address,
-                        "privatekey":session.private_key.hex(),
-                        "diddocs": [docs.model_dump_json() for docs in session.diddocs]
-                    }
-                    for addr, session in self.sessions.items()
-                },
-                "current_address": self.current_session.address if self.current_session else None
-            }
-            with open(filename, 'w', encoding="utf-8") as f:
-                json.dump(state, f, indent=2)
-            self.io.print(f"\n💾 Session state saved to {filename}")
-            self.saved = True
-        except CLIError as e:
-            self.io.print(f"Note: Could not save session state: {e}")
         self.state =MenuState.MAIN
 
     def export_priv_key(self):
         """Exports Priv key account to screen"""
-        i = 1
-        states = []
-        for add in self.sessions:
-            self.io.print(f"{i} - {add}")
-            i = i+1
-            states.append(add)
+        accs = self.verity.list_account()
+        if not accs:
+            return
+        for i, acc in enumerate(accs[0], start=1):
+            self.io.print(f"{i} - {acc}")
         inp = int(self.io.input("~> "))
-        self.io.print(f"Private Key: {self.sessions[states[inp-1]].private_key.hex()}")
+        self.verity.select_account_by_index(inp)
+        self.io.print(f"Private Key: {self.verity.export_priv_key()}")
         self.state =MenuState.MAIN
+
+    def create_claim_opts(self):
+        """
+        Docstring for create_claim_opts
         
+        :param self: Description
+        """
+        active, addr = self.verity.is_active()
+        if active:
+            self.io.print("Listing Available issuers")
+            issuers = self.verity.issuers(addr)
+            for iss in issuers:
+                self.io.print(iss)
+            issuer = self.io.input("Enter Issuer: ")
+            msg = self.io.input("message(y/N): ").strip().lower()
+            if msg == "y":
+                message = self.io.input("Enter message(claim): ")
+                self.io.print(self.verity.create_claims(issuer, message))
+            else:
+                path = self.io.input("Enter the path to file: ")
+                self.io.print(self.verity.create_claims(issuer, filepath=path))
+        self.state = MenuState.MAIN
+
 def main():
     """Entry point for the CLI."""
     # support headless operation via env/args
@@ -498,7 +480,7 @@ def main():
 
         if args.sign_priv:
             vm = args.verification_method or f"{args.issuer}#key-1"
-            claim = sign_claim(claim, args.sign_priv, vm)
+            claim = sign_claim(claim, args.sign_priv)
             print(f"Signed claim; proof created (verification_method={vm})")
 
         if args.store:
@@ -517,7 +499,7 @@ def main():
         if not cli.saved:
             print("\n\n⚠️  Demo interrupted. Sessions were not saved.")
         sys.exit(0)
-    except CLIError as e:
+    except VerityCliError as e:
         print(f"\n❌ Fatal error: {e}")
         traceback.print_exc()
         sys.exit(1)

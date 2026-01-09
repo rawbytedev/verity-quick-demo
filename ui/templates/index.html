@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DID Management System</title>
+    <link rel="stylesheet" href="/ui/static/css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap"
+        rel="stylesheet">
+</head>
+
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header class="header">
+            <div class="logo">
+                <i class="fas fa-fingerprint"></i>
+                <h1>DID Management System</h1>
+            </div>
+            <div class="active-account-display" id="activeAccountDisplay">
+                <p>No account selected</p>
+            </div>
+        </header>
+
+        <div class="main-content">
+            <!-- Sidebar -->
+            <aside class="sidebar">
+                <div class="sidebar-section">
+                    <h3><i class="fas fa-user-circle"></i> Account Management</h3>
+                    <button class="btn-sidebar" onclick="showSection('listSelectAccounts')">
+                        <i class="fas fa-users"></i> List & Select Accounts
+                    </button>
+                    <button class="btn-sidebar" onclick="showSection('createAccount')">
+                        <i class="fas fa-plus-circle"></i> Create Account
+                    </button>
+                    <button class="btn-sidebar" onclick="showSection('importAccount')">
+                        <i class="fas fa-file-import"></i> Import Accounts
+                    </button>
+                </div>
+
+                <div class="sidebar-section">
+                    <h3><i class="fas fa-id-card"></i> DID Document</h3>
+                    <button class="btn-sidebar" onclick="showSection('createDidDoc')">
+                        <i class="fas fa-plus"></i> Create DID Doc
+                    </button>
+                    <button class="btn-sidebar" onclick="showSection('listDidDocs')">
+                        <i class="fas fa-list"></i> List DID Docs
+                    </button>
+                </div>
+
+                <div class="sidebar-section">
+                    <h3><i class="fas fa-key"></i> Keys</h3>
+                    <button class="btn-sidebar" onclick="showSection('showKeys')">
+                        <i class="fas fa-key"></i> Show Private Keys
+                    </button>
+                </div>
+
+                <div class="sidebar-section">
+                    <h3><i class="fas fa-file-contract"></i> Claims</h3>
+                    <button class="btn-sidebar" onclick="showSection('createClaim')">
+                        <i class="fas fa-file-signature"></i> Create Claim
+                    </button>
+                </div>
+            </aside>
+
+            <!-- Main Content Area -->
+            <main class="content-area">
+                <div id="listSelectAccounts" class="content-section active">
+                    <h2><i class="fas fa-users"></i> List & Select Accounts</h2>
+                    <div class="form-container">
+                        <button class="btn-primary" onclick="loadAndDisplayAccounts()">
+                            <i class="fas fa-sync-alt"></i> Refresh Accounts
+                        </button>
+                        <div id="accountsList" class="accounts-list-container"></div>
+                    </div>
+                </div>
+
+                <div id="createAccount" class="content-section">
+                    <h2><i class="fas fa-user-plus"></i> Create New Account</h2>
+                    <div class="form-container">
+                        <button class="btn-primary" onclick="createAccount()">
+                            <i class="fas fa-plus-circle"></i> Create Account
+                        </button>
+                        <div id="accountResult" class="result-container"></div>
+                    </div>
+                </div>
+
+                <div id="importAccount" class="content-section">
+                    <h2><i class="fas fa-file-import"></i> Import Accounts</h2>
+                    <div class="form-container">
+                        <div class="form-group">
+                            <label for="importData"><i class="fas fa-database"></i> Import Data (JSON)</label>
+                            <textarea id="importData" rows="6"
+                                placeholder='Paste account data in JSON format'></textarea>
+                        </div>
+                        <button class="btn-primary" onclick="importAccounts()">
+                            <i class="fas fa-upload"></i> Import Accounts
+                        </button>
+                        <div id="importResult" class="result-container"></div>
+                    </div>
+                </div>
+
+
+                <div id="createDidDoc" class="content-section">
+                    <h2><i class="fas fa-id-card"></i> Create DID Document</h2>
+                    <div class="form-container">
+                        <div class="form-group">
+                            <label for="didOrgName"><i class="fas fa-building"></i> Organization Name <span style="color: red;">*</span></label>
+                            <input id="didOrgName" type="text" placeholder="Enter organization name">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="didNamespace"><i class="fas fa-globe"></i> Namespace</label>
+                            <input id="didNamespace" type="text" value="org">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="didEntityId"><i class="fas fa-fingerprint"></i> Entity Identifier</label>
+                            <input id="didEntityId" type="text" placeholder="entity-id (auto-generated from org name if empty)">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="didJurisdiction"><i class="fas fa-map-marker-alt"></i> Jurisdiction</label>
+                            <input id="didJurisdiction" type="text" value="US" placeholder="e.g., US, EU, UK">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="didTier"><i class="fas fa-layer-group"></i> Tier</label>
+                            <select id="didTier">
+                                <option value="S">S - Standard</option>
+                                <option value="A">A - Advanced</option>
+                                <option value="B">B - Business</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="didAccountId"><i class="fas fa-id-badge"></i> Account <span style="color: red;">*</span></label>
+                            <select id="didAccountId" class="form-select"></select>
+                            <button class="btn-secondary" onclick="toggleFullAddresses()" type="button" style="margin-top: 8px;">
+                                <i class="fas fa-expand"></i> Toggle Full Addresses
+                            </button>
+                        </div>
+
+                        <div class="form-group">
+                            <label><i class="fas fa-key"></i> Verification Methods</label>
+                            <div id="verificationMethods" style="border: 1px solid #e0e0e0; border-radius: 8px; padding: 10px; background: #f9f9f9;">
+                                <!-- template row -->
+                                <div class="vm-row" style="display: grid; grid-template-columns: 1fr 1fr 1fr 1fr auto; gap: 10px; margin-bottom: 10px; padding: 10px; background: white; border-radius: 5px; border: 1px solid #e0e0e0;">
+                                    <input class="vm-id" placeholder="id (optional)">
+                                    <select class="vm-type">
+                                        <option value="Ed25519VerificationKey2020">Ed25519VerificationKey2020</option>
+                                        <option value="Ed25519VerificationKey2018">Ed25519VerificationKey2018</option>
+                                        <option value="JsonWebKey2020">JsonWebKey2020</option>
+                                    </select>
+                                    <input class="vm-controller" placeholder="controller (defaults to did)">
+                                    <input class="vm-public" placeholder="public key / address">
+                                    <button class="btn-danger" onclick="removeVM(this)" type="button">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            <button class="btn-secondary" onclick="addVM()" type="button" style="margin-top: 10px;">
+                                <i class="fas fa-plus"></i> Add Verification Method
+                            </button>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="checkbox-label">
+                                <input id="signAfterCreate" type="checkbox">
+                                <i class="fas fa-pen"></i> Sign after creation
+                            </label>
+                            <label class="checkbox-label">
+                                <input id="registerAfterCreate" type="checkbox">
+                                <i class="fas fa-cloud-upload-alt"></i> Register with backend (placeholder)
+                            </label>
+                        </div>
+
+                        <button class="btn-primary" onclick="createDidDoc()">
+                            <i class="fas fa-plus-circle"></i> Create DID Document
+                        </button>
+
+                        <div id="didDocResult" class="result-container"></div>
+                    </div>
+                </div>
+
+
+                <div id="listDidDocs" class="content-section">
+                    <h2><i class="fas fa-list"></i> DID Documents List</h2>
+                    <div class="form-container">
+                        <div class="form-group">
+                            <label for="listAccountId"><i class="fas fa-id-badge"></i> Select Account</label>
+                            <select id="listAccountId" class="form-select" onchange="loadDidDocs()">
+                                <option value="">Select Account</option>
+                            </select>
+                        </div>
+                        <button class="btn-secondary" onclick="loadDidDocs()">
+                            <i class="fas fa-sync"></i> Refresh List
+                        </button>
+                        <div id="didDocsList" class="result-container"></div>
+                    </div>
+                </div>
+
+                <div id="showKeys" class="content-section">
+                    <h2><i class="fas fa-key"></i> Private Keys</h2>
+                    <div class="form-container">
+                        <div class="form-group">
+                            <label for="keysAccountId"><i class="fas fa-id-badge"></i> Select Account</label>
+                            <select id="keysAccountId" class="form-select" onchange="showPrivateKeys()">
+                                <option value="">Select Account</option>
+                            </select>
+                        </div>
+                        <button class="btn-secondary" onclick="showPrivateKeys()">
+                            <i class="fas fa-sync"></i> Refresh Keys
+                        </button>
+                        <div id="keysResult" class="result-container"></div>
+                    </div>
+                </div>
+
+                <div id="createClaim" class="content-section">
+                    <h2><i class="fas fa-file-signature"></i> Create Claim</h2>
+                    <div class="form-container">
+                        <div class="form-group">
+                            <label for="claimAccountId"><i class="fas fa-id-badge"></i> Signing Account</label>
+                            <select id="claimAccountId" class="form-select" onchange="loadIssuers()">
+                                <option value="">Select Account</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="claimIssuer"><i class="fas fa-user-tie"></i> Issuer</label>
+                            <select id="claimIssuer" class="form-select">
+                                <option value="">Select Issuer</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label><i class="fas fa-edit"></i> Claim Type</label>
+                            <div class="radio-group">
+                                <label class="radio-label">
+                                    <input type="radio" name="claimType" value="message" checked
+                                        onclick="toggleClaimInput()">
+                                    <i class="fas fa-comment"></i> Message
+                                </label>
+                                <label class="radio-label">
+                                    <input type="radio" name="claimType" value="file" onclick="toggleClaimInput()">
+                                    <i class="fas fa-file-upload"></i> File
+                                </label>
+                            </div>
+                        </div>
+
+                        <div id="messageInput" class="form-group">
+                            <label for="claimMessage"><i class="fas fa-comment-dots"></i> Message</label>
+                            <textarea id="claimMessage" rows="4" placeholder="Enter your claim message"></textarea>
+                        </div>
+
+                        <div id="fileInput" class="form-group" style="display: none;">
+                            <label for="claimFile"><i class="fas fa-file"></i> Upload File</label>
+                            <input type="file" id="claimFile" class="file-input">
+                            <small class="file-hint">Supported files: .txt, .json, .pdf, .doc, .docx</small>
+                        </div>
+
+                        <button class="btn-primary" onclick="createClaim()">
+                            <i class="fas fa-file-signature"></i> Create & Sign Claim
+                        </button>
+                        <div id="claimResult" class="result-container"></div>
+                    </div>
+                </div>
+            </main>
+        </div>
+
+        <!-- Toast Notification -->
+        <div id="toast" class="toast"></div>
+    </div>
+
+    <script src="ui/static/js/script.js"></script>
+</body>
+
+</html>

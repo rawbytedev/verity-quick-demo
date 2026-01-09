@@ -1,6 +1,6 @@
 """
 Docstring services
 """
-from . import storage, verifier, batch
+from . import storage, verifier, batch, ui
 
-__all__ = ["storage", "verifier", "batch"]
+__all__ = ["storage", "verifier", "batch", "ui"]
