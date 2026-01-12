@@ -166,7 +166,6 @@ async def api_create_diddoc(
             backend.select_account(account_id)
         else:
             raise HTTPException(status_code=400, detail="Account not found")
-        
         active, addr = backend.is_active()
         if not active:
             raise HTTPException(status_code=400, detail="Failed to activate account session")
@@ -388,6 +387,8 @@ async def api_create_claim(
     Create a claim from a message or file.
     Uses middleware.create_claim() following CLI pattern
     """
+    _ = sign_after_create
+    _ = register_after_create
     try:
         active, _ = backend.is_active()
         if not active:
@@ -426,8 +427,6 @@ async def api_create_claim(
     except VerityValidationError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
     except Exception as e:
-        import traceback
-        traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e)) from e
 
 # ============================================================================
