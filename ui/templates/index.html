@@ -107,7 +107,8 @@
                     <h2><i class="fas fa-id-card"></i> Create DID Document</h2>
                     <div class="form-container">
                         <div class="form-group">
-                            <label for="didOrgName"><i class="fas fa-building"></i> Organization Name <span style="color: red;">*</span></label>
+                            <label for="didOrgName"><i class="fas fa-building"></i> Organization Name <span
+                                    style="color: red;">*</span></label>
                             <input id="didOrgName" type="text" placeholder="Enter organization name">
                         </div>
 
@@ -118,7 +119,8 @@
 
                         <div class="form-group">
                             <label for="didEntityId"><i class="fas fa-fingerprint"></i> Entity Identifier</label>
-                            <input id="didEntityId" type="text" placeholder="entity-id (auto-generated from org name if empty)">
+                            <input id="didEntityId" type="text"
+                                placeholder="entity-id (auto-generated from org name if empty)">
                         </div>
 
                         <div class="form-group">
@@ -136,18 +138,22 @@
                         </div>
 
                         <div class="form-group">
-                            <label for="didAccountId"><i class="fas fa-id-badge"></i> Account <span style="color: red;">*</span></label>
+                            <label for="didAccountId"><i class="fas fa-id-badge"></i> Account <span
+                                    style="color: red;">*</span></label>
                             <select id="didAccountId" class="form-select"></select>
-                            <button class="btn-secondary" onclick="toggleFullAddresses()" type="button" style="margin-top: 8px;">
+                            <button class="btn-secondary" onclick="toggleFullAddresses()" type="button"
+                                style="margin-top: 8px;">
                                 <i class="fas fa-expand"></i> Toggle Full Addresses
                             </button>
                         </div>
 
                         <div class="form-group">
                             <label><i class="fas fa-key"></i> Verification Methods</label>
-                            <div id="verificationMethods" style="border: 1px solid #e0e0e0; border-radius: 8px; padding: 10px; background: #f9f9f9;">
+                            <div id="verificationMethods"
+                                style="border: 1px solid #e0e0e0; border-radius: 8px; padding: 10px; background: #f9f9f9;">
                                 <!-- template row -->
-                                <div class="vm-row" style="display: grid; grid-template-columns: 1fr 1fr 1fr 1fr auto; gap: 10px; margin-bottom: 10px; padding: 10px; background: white; border-radius: 5px; border: 1px solid #e0e0e0;">
+                                <div class="vm-row"
+                                    style="display: grid; grid-template-columns: 1fr 1fr 1fr 1fr auto; gap: 10px; margin-bottom: 10px; padding: 10px; background: white; border-radius: 5px; border: 1px solid #e0e0e0;">
                                     <input class="vm-id" placeholder="id (optional)">
                                     <select class="vm-type">
                                         <option value="Ed25519VerificationKey2020">Ed25519VerificationKey2020</option>
@@ -260,7 +266,16 @@
                             <input type="file" id="claimFile" class="file-input">
                             <small class="file-hint">Supported files: .txt, .json, .pdf, .doc, .docx</small>
                         </div>
-
+                        <div class="form-group">
+                            <label class="checkbox-label">
+                                <input id="claimSignAfter" type="checkbox">
+                                <i class="fas fa-pen"></i> Sign after creation
+                            </label>
+                            <label class="checkbox-label">
+                                <input id="claimRegisterAfter" type="checkbox">
+                                <i class="fas fa-cloud-upload-alt"></i> Register with backend
+                            </label>
+                        </div>
                         <button class="btn-primary" onclick="createClaim()">
                             <i class="fas fa-file-signature"></i> Create & Sign Claim
                         </button>

@@ -49,7 +49,23 @@ python ui_main.py
 python cli_main.py 
 ```
 
-Follow prompts to create an account, create DID documents, sign messages, and store documents.
+## How to use (steps)
+
+make sure to use the UI first
+
+### steps(normal workflow)
+
+1- create an account
+2- select the account
+3- create a diddoc and specifie the account address in the verification methods
+4- check sign and register
+5- click on register DIDDOC
+6- go to claims
+7- select the account to use for claim creation
+8- select issuer(if it doesn't appear then reload page or select 'account' then back)
+9- then choose the content to create claim for message or file
+10- press create claim it should return dict which will contain an verificaton url
+11- you can copy claim id and head to verifier to verify
 
 ## Testing
 

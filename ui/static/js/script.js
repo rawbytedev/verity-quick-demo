@@ -551,7 +551,7 @@ async function loadIssuers() {
         if (!selectResponse.ok) throw new Error('Failed to select account');
         
         // Load DID docs to use as issuers
-        const response = await fetch('/api/account/issuers');
+        const response = await fetch('/api/accounts/issuers');
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
         
         const data = await response.json();
@@ -631,41 +631,88 @@ function updateAccountDropdown() {
 
 // Create claim extended: allow sign + register flags
 async function createClaim() {
-  const accountId = document.getElementById('claimAccountId').value;
-  const issuer = document.getElementById('claimIssuer').value;
-  const claimType = document.querySelector('input[name="claimType"]:checked').value;
-  const signAfter = document.getElementById('claimSignAfter').checked;
-  const registerAfter = document.getElementById('claimRegisterAfter').checked;
+    const accountId = document.getElementById('claimAccountId').value;
+    const issuer = document.getElementById('claimIssuer').value;
+    const claimType = document.querySelector('input[name="claimType"]:checked').value;
+    
+    // Check if elements exist before using them
+    const signAfter = document.getElementById('claimSignAfter') ? 
+        document.getElementById('claimSignAfter').checked : false;
+    const registerAfter = document.getElementById('claimRegisterAfter') ? 
+        document.getElementById('claimRegisterAfter').checked : false;
+    
+    if (!accountId || !issuer) { 
+        showToast('Account and issuer required', 'error'); 
+        return; 
+    }
 
-  if (!accountId || !issuer) { showToast('Account and issuer required','error'); return; }
+    const form = new FormData();
+    form.append('issuer', issuer);
+    form.append('sign_after_create', signAfter ? '1' : '0');
+    form.append('register_after_create', registerAfter ? '1' : '0');
 
-  const form = new FormData();
-  form.append('issuer', issuer);
-  form.append('sign_after_create', signAfter ? '1' : '0');
-  form.append('register_after_create', registerAfter ? '1' : '0');
+    if (claimType === 'message') {
+        const message = document.getElementById('claimMessage').value.trim();
+        if (!message) { 
+            showToast('Message required', 'error'); 
+            return; 
+        }
+        form.append('message', message);
+    } else {
+        const file = document.getElementById('claimFile').files[0];
+        if (!file) { 
+            showToast('File required', 'error'); 
+            return; 
+        }
+        form.append('file', file);
+    }
 
-  if (claimType === 'message') {
-    const message = document.getElementById('claimMessage').value.trim();
-    if (!message) { showToast('Message required','error'); return; }
-    form.append('message', message);
-  } else {
-    const file = document.getElementById('claimFile').files[0];
-    if (!file) { showToast('File required','error'); return; }
-    form.append('file', file);
-  }
+    try {
+        // Ensure account is selected on backend
+        const selForm = new FormData();
+        selForm.append('account_id', accountId);
+        const selectResponse = await fetch('/api/accounts/select', { 
+            method: 'POST', 
+            body: selForm 
+        });
+        
+        if (!selectResponse.ok) {
+            throw new Error('Failed to select account');
+        }
 
-  // ensure account selected on backend
-  const selForm = new FormData();
-  selForm.append('account_id', accountId);
-  await fetch('/api/accounts/select', { method: 'POST', body: selForm });
+        const res = await fetch('/api/claims/create', { 
+            method: 'POST', 
+            body: form 
+        });
+        
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        
+        const data = await res.json();
+        document.getElementById('claimResult').innerHTML = `
+            <div class="result-item">
+                <h4><i class="fas fa-check-circle"></i> Claim Created Successfully</h4>
+                <pre style="background: #f1f1f1; padding: 15px; border-radius: 5px; overflow-x: auto;">
+${JSON.stringify(data, null, 2)}
+                </pre>
+            </div>
+        `;
+        showToast('Claim created successfully', 'success');
+        
+        // Clear form
+        if (claimType === 'message') {
+            document.getElementById('claimMessage').value = '';
+        } else {
+            document.getElementById('claimFile').value = '';
+        }
+    } catch (err) {
+        console.error('Error creating claim:', err);
+        showToast('Error creating claim: ' + err.message, 'error');
+    }
+}
 
-  try {
-    const res = await fetch('/api/claims/create', { method: 'POST', body: form });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const data = await res.json();
-    document.getElementById('claimResult').innerText = JSON.stringify(data, null, 2);
-    showToast('Claim created', 'success');
-  } catch (err) {
-    showToast('Error creating claim: ' + err.message, 'error');
-  }
+function toggleFullAddresses() {
+    showFullAddresses = !showFullAddresses;
+    updateAccountDropdown();
+    showToast(showFullAddresses ? 
+        'Showing full addresses' : 'Showing truncated addresses', 'info');
 }

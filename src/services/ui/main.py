@@ -10,6 +10,7 @@ from fastapi import FastAPI, Request, Form, File, UploadFile, HTTPException
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
+from fastapi.encoders import jsonable_encoder
 import uvicorn
 from src.backend import VerityDemo
 from src.core.models import (
@@ -101,7 +102,7 @@ async def api_list_accounts():
         raise HTTPException(status_code=500, detail=str(e)) from e
 
 @app.post("/api/accounts/select")
-async def api_select_account(account_id: str = Form(...)):
+def api_select_account(account_id: str = Form(...)):
     """
     Select an account as the current session.
     Delegates to backend.select_account_by_index()
@@ -158,15 +159,16 @@ async def api_create_diddoc(
     try:
         # Ensure an active session: attempt to select the provided account
         # account_id may already be selected by the UI, but ensure it.
-        res = await api_select_account(account_id)
-        data = json.loads(res.body)
-        if data['status'] != "success":
-            raise HTTPException(status_code=401, detail="Bad req")
-        if data['current_account'] != account_id:
-            raise HTTPException(status_code=401, detail="Bad req")
+        # Directly select the account instead of calling the endpoint
+        addresses, _ = backend.list_account()
+        if account_id in addresses:
+            # Select by address directly
+            backend.select_account(account_id)
+        else:
+            raise HTTPException(status_code=400, detail="Account not found")
         active, addr = backend.is_active()
         if not active:
-            raise HTTPException(status_code=400, detail="No active session after selecting account")
+            raise HTTPException(status_code=400, detail="Failed to activate account session")
 
         # Build DID string same as CLI
         did = f"did:verity:{namespace}:{entity_identifier}"
@@ -344,7 +346,7 @@ async def api_register_diddoc(diddoc_index: int = Form(...)):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e)) from e
 
-@app.get("/api/account/issuers")
+@app.get("/api/accounts/issuers")
 async def api_list_issuers():
     """
     List all issuers for the current account.
@@ -377,12 +379,16 @@ async def api_list_issuers():
 async def api_create_claim(
     issuer: str = Form(...),
     message: Optional[str] = Form(default=None),
-    file: Optional[UploadFile] = File(default=None)
+    file: Optional[UploadFile] = File(default=None),
+    sign_after_create: Optional[str] = Form(default="0"),
+    register_after_create: Optional[str] = Form(default="0")
 ):
     """
     Create a claim from a message or file.
     Uses middleware.create_claim() following CLI pattern
     """
+    _ = sign_after_create
+    _ = register_after_create
     try:
         active, _ = backend.is_active()
         if not active:
@@ -407,13 +413,13 @@ async def api_create_claim(
                 status_code=400,
                 detail="Either 'message' or 'file' is required"
             )
-
+        claim_jsonable= jsonable_encoder(claim)
         return JSONResponse(
             status_code=201,
             content={
                 "status": "success",
-                "claim_id": claim["claim_id"],
-                "claim": claim["signed_claim"]
+                "claim_id": claim_jsonable.get("claim_id"),
+                "claim": claim_jsonable.get("signed_claim")
             }
         )
     except HTTPException:
