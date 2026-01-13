@@ -5,6 +5,7 @@ import logging
 import json
 from datetime import datetime
 from typing import Dict, List, Optional
+from eth_account import Account
 from pydantic import BaseModel
 from src.middleware.claim_utils import generate_verification_url
 from src.core import (sign_message, verify_signature,
@@ -25,7 +26,7 @@ from .logs import setup_logging
 
 class AccountSession:
     """Manages a single account session with its keys and state."""
-    def __init__(self, account_data: dict):
+    def __init__(self, account_data: Account):
         self.account = account_data
         self.address = get_ethereum_address(account_data)
         self.private_key = get_ethereum_private_key(account_data)
@@ -119,7 +120,7 @@ class VerityDemo:
             Tuple of (addresses: list, diddoc_counts: dict) or None if no accounts.
         """
         if not self.sessions:
-            return None
+            return (None,None)
         addresses = list(self.sessions.keys())
         diddoc = {}
         for addr in addresses:
@@ -185,8 +186,10 @@ class VerityDemo:
         if not isinstance(diddoc, DemoDIDDocument):
             raise VerityValidationError("diddoc must be of type DemoDIDDocument")
         try:
-            self.current_session.add_diddoc(diddoc)
-            return True
+            if self.current_session:
+                self.current_session.add_diddoc(diddoc)
+                return True
+            raise VerityValidationError("No accounts to add diddoc to")
         except (AttributeError, VerityBackendError):
             raise
         except Exception as e:
@@ -203,17 +206,20 @@ class VerityDemo:
             True on success, False otherwise.
         """
         self.is_data_valid(diddoc, "diddoc")
+        if not self.current_session:
+            raise VerityValidationError("No account to sign with")
         try:
             # Serialize the DID Document for signing
             message = diddoc.model_dump_json()
             # Use sign function
+            diddoc = DemoDIDDocument.model_validate(diddoc)
             signature = sign_message(self.current_session.private_key, message)
             diddoc.proof = {
                 "type": "Ed25519Signature2020",
                 "created": datetime.now().isoformat(),
                 "proofValue": signature,
                 "signer": self.current_session.address,
-            }
+                }
             return True
         except (AttributeError, VerityBackendError) as e:
             logging.log(logging.WARNING, "Error signing: %s", e)
@@ -232,6 +238,8 @@ class VerityDemo:
             JSON string with signature details, or None if error.
         """
         self.is_data_valid(message, "message")
+        if not self.current_session:
+            raise VerityValidationError("No account to sign with")
         try:
             signature = sign_message(self.current_session.private_key, message)
             return json.dumps(
@@ -289,6 +297,8 @@ class VerityDemo:
         Returns:
             List of formatted DID document strings, or None if no session.
         """
+        if not self.current_session:
+            raise VerityValidationError("No account to list from")
         val, _ = self.is_active()
         if val:
             print(self.current_session.diddocs)
@@ -324,8 +334,11 @@ class VerityDemo:
             raise VerityValidationError("idx can't be None")
         if not isinstance(idx, int):
             raise VerityValidationError("idx must be an integer")
+        if not self.current_session:
+            raise VerityValidationError("No account to register with")
         try:
             doc = self.current_session.diddocs[idx]
+            doc = DemoDIDDocument.model_validate(doc)
             res = store(doc, 5)
             register(doc.id, res.cid)
             logging.log(logging.INFO, "DID registered successfully")
@@ -394,10 +407,11 @@ class VerityDemo:
             if message:
                 self.is_data_valid(message, "message")
                 claim_obj = create_claim(issuer, message=message)
-            else:
+            elif filepath:
                 self.is_data_valid(filepath, "filepath")
                 claim_obj = create_claim(issuer, file_path=filepath)
-
+            else:
+                raise VerityValidationError("No content to create claim for")
             signed_claim = sign_claim(claim_obj, self.export_priv_key())
 
             claim_cid = store_claim(signed_claim)
@@ -461,7 +475,7 @@ class VerityDemo:
                         if public_address == address:
                             session_docs.append(docs)
             return session_docs
-        return None
+        return []
 
     def issuers(self, address: str) -> List[str]:
         """
@@ -474,6 +488,8 @@ class VerityDemo:
             List of issuer DIDs.
         """
         res = self.select_account(address)
+        if not self.current_session:
+            raise VerityValidationError("No account to list issuers from")
         issuers_list = []
         if res:
             for _, docs in enumerate(self.current_session.diddocs):
@@ -483,6 +499,11 @@ class VerityDemo:
         for docs in diddocs:
             doc = docs.model_dump()
             for vm in doc.get("verification_method", []):
-                if vm.get("public_key_multibase") == f"eth:{address}":
-                    issuers_list.append(doc["id"])
+                public_address = vm.get("public_key_multibase")
+                if public_address.startswith("eth:"):
+                    if public_address == f"eth:{address}":
+                        issuers_list.append(doc['id'])
+                else:
+                    if public_address == address:
+                        issuers_list.append(doc['id'])
         return issuers_list

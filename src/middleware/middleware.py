@@ -50,7 +50,7 @@ def _finalize_url(key: str, val: Optional[str] = None) -> str:
     return url
 
 
-def _post_json(url: str, payload: dict, timeout: float = DEFAULT_TIMEOUT,
+def _post_json(url: str, payload: str, timeout: float = DEFAULT_TIMEOUT,
                retries: int = DEFAULT_RETRIES):
     headers = {"Content-Type": "application/json"}
     last_exc = None

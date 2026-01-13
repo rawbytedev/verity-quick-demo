@@ -5,7 +5,7 @@ Wires up the VerityDemo backend and middleware operations
 import tempfile
 import os
 import json
-from typing import Optional
+from typing import Any, Optional
 from fastapi import FastAPI, Request, Form, File, UploadFile, HTTPException
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
@@ -17,7 +17,7 @@ from src.core.models import (
     DemoDIDDocument,
     VerificationMethod,
 )
-from src.core.exceptions import (VerityError, VerityValidationError)
+from src.core.exceptions import (VerityValidationError, VerityBackendError)
 
 app = FastAPI(
     title="DID Management System",
@@ -115,6 +115,8 @@ def api_select_account(account_id: str = Form(...)):
         except (VerityValidationError, ValueError) as exc:
             # If not an integer, treat as address lookup
             addresses, _ = backend.list_account()
+            if not addresses:
+                raise VerityValidationError("No account found") from exc
             if account_id in addresses:
                 idx = addresses.index(account_id) + 1
                 result = backend.select_account_by_index(idx)
@@ -158,9 +160,9 @@ async def api_create_diddoc(
     """
     try:
         # Ensure an active session: attempt to select the provided account
-        # account_id may already be selected by the UI, but ensure it.
-        # Directly select the account instead of calling the endpoint
         addresses, _ = backend.list_account()
+        if not addresses:
+            raise VerityValidationError("No account found")
         if account_id in addresses:
             # Select by address directly
             backend.select_account(account_id)
@@ -176,7 +178,7 @@ async def api_create_diddoc(
         # Build verification methods from JSON sent by UI
         try:
             vms = json.loads(verification_methods or "[]")
-        except VerityError:
+        except (json.JSONDecodeError, TypeError):
             vms = []
 
         # Normalize verification methods into VerificationMethod instances (not dicts)
@@ -213,14 +215,12 @@ async def api_create_diddoc(
         res = backend.add_diddoc(diddoc)
         # If backend.add_diddoc returns success, normalize for response
         if res:
-            response_payload = {"status": "created", "did": did}
+            response_payload:dict[str, Any]= {"status": "created", "did": did}
         else:
-            response_payload = {"status": "not created", "did": did}
+            response_payload:dict[str, Any] = {"status": "not created", "did": did}
         # Serialize the DemoDIDDocument to dict for JSON response
         try:
             response_payload["diddoc"] = diddoc.model_dump()
-        except VerityError:
-            response_payload["diddoc"] = repr(diddoc)
         except Exception as e:
             raise HTTPException(status_code=500, detail=str(e)) from e
         # Sign after create (optional)
@@ -232,7 +232,7 @@ async def api_create_diddoc(
                     response_payload["signed"] = True
                 else:
                     response_payload["signed"] = False
-            except VerityError as e:
+            except VerityBackendError as e:
                 response_payload["signed"] = False
                 response_payload.setdefault("notes", []).append(f"signing failed: {str(e)}")
 
@@ -396,6 +396,8 @@ async def api_create_claim(
         if message:
             claim = backend.create_claims(message=message, issuer=issuer)
         elif file:
+            if not file.filename:
+                raise VerityValidationError("Filename missing")
             # Save uploaded file temporarily and create claim from it
             # Create temp file
             with tempfile.NamedTemporaryFile(delete=False,
@@ -533,7 +535,7 @@ async def health_check():
             "version": "1.0.0",
             "active_session": addr if active else None
         }
-    except VerityError:
+    except VerityBackendError:
         return {
             "status": "unhealthy",
             "service": "verity-ui",

@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Verity Protocol - Claim Verifier</title>
+    <link rel="stylesheet" href="/verifier_ui/static/css/style.css">
+</head>
+
+<body>
+    <div class="container">
+        <h1>🔍 Verity Protocol - Claim Verification</h1>
+        <p>Verify the authenticity of election results, official statements, and other certified content.</p>
+        <div class="form-group">
+            <label><i class="fas fa-edit"></i> Claim Type</label>
+            <div class="radio-group">
+                <label class="radio-label">
+                    <input type="radio" name="claimType" value="message" checked onclick="toggleClaimInput()">
+                    <i class="fas fa-comment"></i> Message
+                </label>
+                <label class="radio-label">
+                    <input type="radio" name="claimType" value="file" onclick="toggleClaimInput()">
+                    <i class="fas fa-file-upload"></i> File
+                </label>
+            </div>
+        </div>
+        <div id="messageInput" class="form-group">
+            <label for="claimMessage"><i class="fas fa-comment-dots"></i> Message</label>
+            <textarea id="claimMessage" rows="4" placeholder="The content to verify"></textarea>
+        </div>
+
+        <div id="fileInput" class="form-group" style="display: none;">
+            <label for="claimFile"><i class="fas fa-file"></i> Upload File</label>
+            <input type="file" id="claimFile" class="file-input">
+            <small class="file-hint">Supported files: .txt, .json, .pdf, .doc, .docx</small>
+        </div>
+        <div class="input-group">
+            <label for="claimUrl"><b>Verification URL or Claim ID:</b></label>
+            <input type="text" id="claimUrl" placeholder="https://... or cid_abc123... or claim_abc123">
+            <button onclick="verifyClaim()">Verify Authenticity</button>
+        </div>
+
+        <div id="loading" style="display: none;">
+            <p>⏳ Verifying claim... (checking cryptographic signatures)</p>
+        </div>
+
+        <div id="result" class="result"></div>
+    </div>
+
+    <script>
+       
+    </script>
+    <!-- Toast Notification -->
+    <div id="toast" class="toast"></div>
+    <script src="/verifier_ui/static/js/script.js"></script>
+</body>
+
+</html>
