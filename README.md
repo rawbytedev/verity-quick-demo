@@ -1,4 +1,5 @@
 # verity-quick-demo
+
 [![Python application](https://github.com/Verity-Foundation/verity-quick-demo/actions/workflows/python-app.yml/badge.svg)](https://github.com/Verity-Foundation/verity-quick-demo/actions/workflows/python-app.yml)[![Pylint](https://github.com/Verity-Foundation/verity-quick-demo/actions/workflows/pylint.yml/badge.svg)](https://github.com/Verity-Foundation/verity-quick-demo/actions/workflows/pylint.yml)
 
 This repository contains a small demo of Verity protocol components: a CLI for creating DID documents and verifiable claims, signing them, and storing claims using a mock IPFS/registry middleware. The code is intentionally small and focused on demonstrating the core flows: claim generation, signing, and storing.
@@ -56,16 +57,28 @@ make sure to use the UI first
 ### steps(normal workflow)
 
 1- create an account
+
 2- select the account
+
 3- create a diddoc and specifie the account address in the verification methods
+
 4- check sign and register
+
 5- click on register DIDDOC
+
 6- go to claims
+
 7- select the account to use for claim creation
+
 8- select issuer(if it doesn't appear then reload page or select 'account' then back)
+
 9- then choose the content to create claim for message or file
+
 10- press create claim it should return dict which will contain an verificaton url
+
 11- you can copy claim id and head to verifier to verify
+
+12 - You need the content + the claim to verify it
 
 ## Testing
 
